@@ -1,0 +1,7 @@
+CREATE TABLE
+    IF NOT EXISTS foo (bar BIGINT NOT NULL);
+
+INSERT INTO
+    foo (bar)
+VALUES
+    (69);

@@ -1,0 +1,18 @@
+.fullscreen {
+    /* Fill viewport while accounting for mobile browser chrome */
+    min-height: 100vh;
+    min-height: 100dvh; /* dynamic viewport height - modern browsers */
+    width: 100%;
+
+    /* Enable internal scrolling */
+    overflow-y: auto;
+
+    /* Center contents if shorter than viewport */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .fullscreen--centered {
+    justify-content: center;
+  }

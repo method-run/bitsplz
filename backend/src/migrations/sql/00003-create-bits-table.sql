@@ -1,0 +1,9 @@
+CREATE TABLE
+    IF NOT EXISTS bits (
+        x SMALLINT NOT NULL,
+        y SMALLINT NOT NULL,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid (),
+        created_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
+        last_updated TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP,
+        last_seen TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP
+    );

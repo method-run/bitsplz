@@ -1,0 +1,11 @@
+{
+  "name": "bitsplz",
+  "version": "0.0.1",
+  "description": "An MMO game about being a pixel.",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "author": "",
+  "license": "ISC"
+}
