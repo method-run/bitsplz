@@ -1,4 +1,26 @@
+import { Bit } from "../player-bit/storage";
+
+type FieldState = {
+  bitInRangeById: Map<string, Bit>;
+  bounds: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+    origin: {
+      x: number;
+      y: number;
+    };
+  };
+};
+
+type StateUpdater = ((prevState: FieldState) => FieldState) | FieldState;
+type Listener = (state: FieldState) => void;
+
 export class VanillaFieldContext {
+  private state: FieldState;
+  private listeners: Set<Listener>;
+
   constructor() {
     this.state = {
       /**
@@ -23,12 +45,12 @@ export class VanillaFieldContext {
     this.listeners = new Set();
   }
 
-  subscribe(listener) {
+  subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener); // Returns cleanup function
   }
 
-  setState(updater) {
+  setState(updater: StateUpdater): void {
     const newState =
       typeof updater === "function" ? updater(this.state) : updater;
 
@@ -36,24 +58,24 @@ export class VanillaFieldContext {
     this.notify();
   }
 
-  notify() {
+  private notify(): void {
     this.listeners.forEach((listener) => listener(this.state));
   }
 
   // Convenience getters
-  getBitsInRange() {
+  getBitsInRange(): Bit[] {
     return Array.from(this.state.bitInRangeById.values());
   }
 
-  getBounds() {
+  getBounds(): FieldState["bounds"] {
     return this.state.bounds;
   }
 
-  getOrigin() {
+  getOrigin(): FieldState["bounds"]["origin"] {
     return this.state.bounds.origin;
   }
 
-  setBounds(bounds) {
+  setBounds(bounds: FieldState["bounds"]): void {
     this.setState({
       ...this.state,
       bounds,
@@ -61,7 +83,7 @@ export class VanillaFieldContext {
   }
 
   // Mutation methods
-  updateBit(bitId, bitData) {
+  updateBit(bitId: string, bitData: Bit): void {
     const nextBitInRangeById = new Map(this.state.bitInRangeById);
     nextBitInRangeById.set(bitId, bitData);
 
@@ -71,7 +93,7 @@ export class VanillaFieldContext {
     });
   }
 
-  removeBit(bitId) {
+  removeBit(bitId: string): void {
     const nextBitInRangeById = new Map(this.state.bitInRangeById);
     nextBitInRangeById.delete(bitId);
 

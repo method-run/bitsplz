@@ -46,7 +46,7 @@ app.get("/api/migration", async (req, res) => {
 
 app.post("/api/bit", async (req, res) => {
   try {
-    const bit = await createBitAsync({});
+    const bit = await createBitAsync();
     res.json(bit);
   } catch (err) {
     if (err instanceof Error) {

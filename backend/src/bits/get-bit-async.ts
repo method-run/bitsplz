@@ -1,15 +1,7 @@
 import { pool } from "../pool";
+import { type Bit } from "./bit";
 
-interface GetBitInput {
-  id: string;
-}
-
-interface Bit {
-  id: string;
-  x: number;
-  y: number;
-  created_at: Date;
-}
+type GetBitInput = Pick<Bit, "id">;
 
 /**
  * Gets a bit by its ID
@@ -31,5 +23,11 @@ export async function getBitAsync({
     throw new Error(`Bit with id ${id} not found`);
   }
 
-  return result.rows[0];
+  const bit = result.rows[0];
+
+  return {
+    ...bit,
+    created_at: bit.created_at.toISOString(),
+    updated_at: bit.updated_at.toISOString(),
+  };
 }

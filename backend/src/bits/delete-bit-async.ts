@@ -1,12 +1,7 @@
 import { pool } from "../pool";
+import { type Bit } from "./bit";
 
-interface DeleteBitInput {
-  id: string;
-}
-
-interface DeletedBit {
-  id: string;
-}
+type DeleteBitInput = Pick<Bit, "id">;
 
 /**
  * Deletes a bit by its ID
@@ -15,7 +10,7 @@ interface DeletedBit {
 export async function deleteBitAsync({
   /** A UUID for the bit to delete */
   id,
-}: DeleteBitInput): Promise<DeletedBit> {
+}: DeleteBitInput): Promise<Bit> {
   const query = `DELETE FROM bits WHERE id = $1 RETURNING id`;
   const result = await pool.query(query, [id]);
 
@@ -23,5 +18,11 @@ export async function deleteBitAsync({
     throw new Error(`Bit with id ${id} not found`);
   }
 
-  return result.rows[0];
+  const deletedBit = result.rows[0];
+
+  return {
+    ...deletedBit,
+    created_at: deletedBit.created_at.toISOString(),
+    updated_at: deletedBit.updated_at.toISOString(),
+  };
 }

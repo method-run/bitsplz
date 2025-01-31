@@ -1,17 +1,20 @@
 import { useEffect, useState } from "react";
-import { VanillaFieldContext } from "./VanillaFieldContext";
+import {
+  VanillaFieldContext,
+  vanillaFieldContext,
+} from "./VanillaFieldContext";
 
-export function useVanillaField() {
-  const [, forceUpdate] = useState({});
+export function useVanillaField(): VanillaFieldContext {
+  const [, forceUpdate] = useState<object>({});
 
   useEffect(() => {
     // Only rerender if we explicitly want to watch for changes
-    const unsubscribe = VanillaFieldContext.subscribe(() => {
+    const unsubscribe = vanillaFieldContext.subscribe(() => {
       forceUpdate({});
     });
 
     return unsubscribe;
   }, []);
 
-  return VanillaFieldContext;
+  return vanillaFieldContext;
 }

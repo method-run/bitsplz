@@ -1,16 +1,10 @@
 import { useCallback, useState } from "react";
 import { PlayerBitContext } from "./context";
-import { createOrLoadPlayerBitAsync } from "./storage";
+import { Bit, createOrLoadPlayerBitAsync } from "./storage";
 import { vanillaFieldContext } from "../VanillaFieldContext";
 
-// const {vanillaFieldContext} = window;
-// console.log('PlayerBitProvider.jsx', vanillaFieldContext);
-// if (!vanillaFieldContext) {
-//     throw new Error("window.vanillaFieldContext not found");
-// }
-
-export function PlayerBitProvider(props) {
-  const [bit, setBit] = useState(null);
+export function PlayerBitProvider(props: React.PropsWithChildren) {
+  const [bit, setBit] = useState<Bit | null>(null);
 
   const createOrLoadBitAsync = useCallback(async () => {
     const bit = await createOrLoadPlayerBitAsync();

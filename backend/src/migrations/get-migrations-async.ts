@@ -1,31 +1,50 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { pool } from "../pool";
+import { readdir } from "fs/promises";
+import { join } from "path";
+import { Pool } from "pg";
 
-interface Migration {
+type Migration = {
+  id?: string;
+  name?: string;
+  timestamp?: Date;
+  sql?: string;
   file_name: string;
   applied_date: Date | null;
   order: number;
   should_apply: boolean;
   content?: string;
-}
+};
 
-interface MigrationFile {
+type MigrationFile = {
+  id?: string;
+  name?: string;
+  sql?: string;
   fileName: string;
   content: string;
-}
+};
 
-interface ProcessMigrationParams {
+type ProcessMigrationParams = {
   fileName: string;
   content: string;
   shouldInsert: boolean;
-}
+};
 
-interface GetMigrationsParams {
+type GetMigrationsParams = {
+  pool?: Pool;
+  migrationsDir?: string;
   isApplied?: boolean[];
   shouldApply?: boolean[];
   fileNames?: string[];
-}
+};
+
+type TableColumn = {
+  column_name: string;
+  data_type: string;
+  is_nullable: string;
+  column_default: string | null;
+};
 
 export async function getMigrationsAsync(): Promise<MigrationFile[]> {
   await createMigrationsTableIfNeededAsync();
@@ -135,13 +154,6 @@ async function createMigrationsTableIfNeededAsync(): Promise<void> {
     console.info("Creating migrations table");
     await _createMigrationsTableAsync();
   }
-}
-
-interface TableColumn {
-  column_name: string;
-  data_type: string;
-  is_nullable: string;
-  column_default: string | null;
 }
 
 async function _getTableAsync(tableName: string): Promise<TableColumn[]> {
