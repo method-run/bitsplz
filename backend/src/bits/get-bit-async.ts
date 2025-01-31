@@ -12,7 +12,7 @@ export async function getBitAsync({
   id,
 }: GetBitInput): Promise<Bit> {
   const query = `
-    SELECT id, x, y, created_at
+    SELECT id, x, y, created_at, last_updated
     FROM bits
     WHERE id = $1
   `;
@@ -28,6 +28,6 @@ export async function getBitAsync({
   return {
     ...bit,
     created_at: bit.created_at.toISOString(),
-    updated_at: bit.updated_at.toISOString(),
+    updated_at: bit.last_updated.toISOString(),
   };
 }

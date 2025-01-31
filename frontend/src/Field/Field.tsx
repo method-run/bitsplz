@@ -6,14 +6,11 @@ import {
 } from "../VanillaFieldContext";
 import {
   bitToCanvasCoordinates,
-  canvasToBitCoordinates,
   GRID_UNIT_PX,
 } from "../bit-renderer/coordinates";
 
 type DrawAllBitsParams = {
   canvas: HTMLCanvasElement;
-  cols?: number;
-  rows?: number;
   vanillaFieldContext: VanillaFieldContext;
 };
 
@@ -49,28 +46,13 @@ function _drawAllBits({
   const bounds = vanillaFieldContext.getBounds();
   const bitsInRange = vanillaFieldContext.getBitsInRange();
 
-  // Calculate offsets for the first grid lines
-  // This ensures the origin (0,0) is exactly centered
-  const firstColOffset = (canvas.width % GRID_UNIT_PX) / 2;
-  const firstRowOffset = (canvas.height % GRID_UNIT_PX) / 2;
-
-  const centerDotX = canvas.width / 2;
-  const centerDotY = canvas.height / 2;
-
-  console.log({
-    firstColOffset,
-    firstRowOffset,
-    centerDotX,
-    centerDotY,
-    canvasWidth: canvas.width,
-    canvasHeight: canvas.height,
-  });
-
-  // Draw center dot
-  ctx.beginPath();
-  ctx.arc(centerDotX, centerDotY, 2, 0, Math.PI * 2);
-  ctx.fillStyle = "red";
-  ctx.fill();
+  //   // Draw center dot
+  //   const centerDotX = canvas.width / 2;
+  //   const centerDotY = canvas.height / 2;
+  //   ctx.beginPath();
+  //   ctx.arc(centerDotX, centerDotY, 2, 0, Math.PI * 2);
+  //   ctx.fillStyle = "red";
+  //   ctx.fill();
 
   // Draw bits
   bitsInRange.forEach((bit) => {
@@ -78,38 +60,61 @@ function _drawAllBits({
   });
 
   // Draw debug grid aligned with our coordinate system
-  ctx.strokeStyle = "rgba(0,0,0,0.1)";
+  ctx.strokeStyle = "rgba(0,0,0,0.05)";
 
   // Vertical lines
-  for (let x = firstColOffset; x < canvas.width; x += GRID_UNIT_PX) {
-    // Generate vertical grid lines between each potential bit position, and add bit coordinate labels at the top of each line
-    const { x: bitX } = canvasToBitCoordinates({
-      canvasX: x,
-      canvasY: 0,
+  for (let bitX = bounds.left; bitX <= bounds.right; bitX++) {
+    const { x: canvasX } = bitToCanvasCoordinates({
+      bitX,
+      bitY: 0,
       canvas: canvas,
       origin: bounds.origin,
     });
-    ctx.fillText(bitX.toString(), x, 10);
+
+    // if (bitX % 5 === 0) {
+    //   ctx.fillText(bitX.toString(), canvasX, 10);
+    // }
+
     ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvas.height);
+    ctx.moveTo(canvasX, 0);
+    ctx.lineTo(canvasX, canvas.height);
     ctx.stroke();
   }
 
   // Horizontal lines
-  for (let y = firstRowOffset; y < canvas.height; y += GRID_UNIT_PX) {
-    const { y: bitY } = canvasToBitCoordinates({
-      canvasX: 0,
-      canvasY: y,
+  for (let bitY = bounds.top; bitY <= bounds.bottom; bitY++) {
+    const { y: canvasY } = bitToCanvasCoordinates({
+      bitX: 0,
+      bitY,
       canvas: canvas,
       origin: bounds.origin,
     });
-    ctx.fillText(bitY.toString(), 10, y);
+
+    // if (bitY % 5 === 0) {
+    //   ctx.fillText(bitY.toString(), 10, canvasY);
+    // }
+
     ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
+    ctx.moveTo(0, canvasY);
+    ctx.lineTo(canvas.width, canvasY);
     ctx.stroke();
   }
+}
+
+function _calculateBounds(
+  canvas: HTMLCanvasElement,
+  origin: { x: number; y: number }
+) {
+  const rows = Math.floor(canvas.height / GRID_UNIT_PX);
+  const cols = Math.floor(canvas.width / GRID_UNIT_PX);
+
+  return {
+    top: Math.floor(-rows / 2) + origin.y,
+    right: Math.floor(cols / 2) + origin.x,
+    bottom: Math.floor(rows / 2) + origin.y,
+    left: Math.floor(-cols / 2) + origin.x,
+    origin,
+  };
 }
 
 export function Field(): JSX.Element | null {
@@ -120,34 +125,36 @@ export function Field(): JSX.Element | null {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Set up canvas size
+    canvas.style.backgroundColor = "white";
+
+    const resizeObserver = new ResizeObserver(() => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      const origin = vanillaFieldContext.getOrigin();
+      const nextBounds = _calculateBounds(canvas, origin);
+      vanillaFieldContext.setBounds(nextBounds);
+      _drawAllBits({ canvas, vanillaFieldContext });
+    });
+
+    // Initial setup
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    canvas.style.backgroundColor = "white";
     const origin = vanillaFieldContext.getOrigin();
-
-    const rows = Math.floor(canvas.height / GRID_UNIT_PX);
-    const cols = Math.floor(canvas.width / GRID_UNIT_PX);
-
-    const nextBounds = {
-      top: Math.floor(-rows / 2) + origin.y,
-      right: Math.floor(cols / 2) + origin.x,
-      bottom: Math.floor(rows / 2) + origin.y,
-      left: Math.floor(-cols / 2) + origin.x,
-      origin,
-    };
-
+    const nextBounds = _calculateBounds(canvas, origin);
     vanillaFieldContext.setBounds(nextBounds);
+    _drawAllBits({ canvas, vanillaFieldContext });
 
-    _drawAllBits({ canvas, cols, rows, vanillaFieldContext });
+    // Start observing
+    resizeObserver.observe(globalThis.document.body);
 
     // Subscribe to changes and redraw
     const unsubscribe = vanillaFieldContext.subscribe(() => {
-      _drawAllBits({ canvas, cols, rows, vanillaFieldContext });
+      _drawAllBits({ canvas, vanillaFieldContext });
     });
 
     return () => {
       console.log("unsubscribing");
+      resizeObserver.disconnect();
       unsubscribe();
     };
   }, [bit]);

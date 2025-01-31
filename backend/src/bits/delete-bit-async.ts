@@ -11,7 +11,7 @@ export async function deleteBitAsync({
   /** A UUID for the bit to delete */
   id,
 }: DeleteBitInput): Promise<Bit> {
-  const query = `DELETE FROM bits WHERE id = $1 RETURNING id`;
+  const query = `DELETE FROM bits WHERE id = $1 RETURNING id, x, y, created_at, last_updated`;
   const result = await pool.query(query, [id]);
 
   if (!result.rows[0]) {
@@ -23,6 +23,6 @@ export async function deleteBitAsync({
   return {
     ...deletedBit,
     created_at: deletedBit.created_at.toISOString(),
-    updated_at: deletedBit.updated_at.toISOString(),
+    updated_at: deletedBit.last_updated.toISOString(),
   };
 }

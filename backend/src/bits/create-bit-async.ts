@@ -25,9 +25,9 @@ export async function createBitAsync(
   }
 ): Promise<Bit> {
   const query = `
-    INSERT INTO bits (x, y, created_at)
-    VALUES ($1, $2, NOW())
-    RETURNING id, x, y, created_at
+    INSERT INTO bits (x, y, created_at, last_updated)
+    VALUES ($1, $2, NOW(), NOW())
+    RETURNING id, x, y, created_at, last_updated
   `;
 
   const result = await pool.query(query, [x, y]);
@@ -36,6 +36,6 @@ export async function createBitAsync(
   return {
     ...bit,
     created_at: bit.created_at.toISOString(),
-    updated_at: bit.updated_at.toISOString(),
+    updated_at: bit.last_updated.toISOString(),
   };
 }
