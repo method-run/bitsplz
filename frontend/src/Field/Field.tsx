@@ -1,5 +1,5 @@
 import { usePlayerBit } from "../player-bit";
-import { useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef } from "react";
 import {
   VanillaFieldContext,
   vanillaFieldContext,
@@ -27,7 +27,6 @@ function _drawBit(
     origin,
   });
 
-  console.log({ canvasX, canvasY, bitX: bit.x, bitY: bit.y });
   ctx.fillStyle = "black";
   ctx.fillRect(canvasX, canvasY, GRID_UNIT_PX, GRID_UNIT_PX);
 }
@@ -119,7 +118,47 @@ function _calculateBounds(
 
 export function Field(): JSX.Element | null {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { bit } = usePlayerBit();
+  const { bit, setBit } = usePlayerBit();
+
+  const handleKeyPress = useCallback(
+    (event: KeyboardEvent) => {
+      if (!bit) return;
+
+      const keyMap: { [key: string]: { x: number; y: number } } = {
+        ArrowUp: { x: 0, y: -1 },
+        ArrowDown: { x: 0, y: 1 },
+        ArrowLeft: { x: -1, y: 0 },
+        ArrowRight: { x: 1, y: 0 },
+        w: { x: 0, y: -1 },
+        s: { x: 0, y: 1 },
+        a: { x: -1, y: 0 },
+        d: { x: 1, y: 0 },
+      };
+
+      const movement = keyMap[event.key];
+
+      if (movement) {
+        setBit((prevBit) => {
+          const nextBit = prevBit
+            ? {
+                ...prevBit,
+                x: prevBit.x + movement.x,
+                y: prevBit.y + movement.y,
+              }
+            : null;
+
+          return nextBit;
+        });
+      }
+    },
+    [bit, setBit]
+  );
+
+  // Add keyboard handler
+  useLayoutEffect(() => {
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [handleKeyPress]);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -153,7 +192,6 @@ export function Field(): JSX.Element | null {
     });
 
     return () => {
-      console.log("unsubscribing");
       resizeObserver.disconnect();
       unsubscribe();
     };
