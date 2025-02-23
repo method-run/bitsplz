@@ -1,3 +1,4 @@
+import { initializeWebSocket } from "./websocket/websocket-server";
 import cors from "cors";
 import express from "express";
 import { getMigrationsAsync } from "./migrations/get-migrations-async";
@@ -87,6 +88,9 @@ app.delete("/api/bit/:id", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+const server = app.listen(port, () => {
+  console.log(`Express server running on http://localhost:${port}`);
 });
+
+// Initialize WebSocket handling
+initializeWebSocket(server);

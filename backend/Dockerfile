@@ -34,17 +34,8 @@ COPY package*.json ./
 
 RUN npm install --production
 
-RUN echo "=== 0 Production stage dist contents ===" && \
-    ls -la .
-
 COPY --from=builder /app/dist/ .
 
-RUN echo "=== 1 Production stage dist contents ===" && \
-    ls -la .
-
 ENV NODE_ENV production
-
-RUN echo "=== 2 Production stage dist contents ===" && \
-    ls -la .
 
 CMD ["node", "./index.js"]

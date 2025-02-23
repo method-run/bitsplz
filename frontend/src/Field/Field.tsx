@@ -1,5 +1,11 @@
 import { usePlayerBit } from "../player-bit";
-import { useCallback, useLayoutEffect, useRef } from "react";
+import {
+  Dispatch,
+  SetStateAction,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+} from "react";
 import {
   VanillaFieldContext,
   vanillaFieldContext,
@@ -8,10 +14,32 @@ import {
   bitToCanvasCoordinates,
   GRID_UNIT_PX,
 } from "../bit-renderer/coordinates";
+import { Bit } from "../player-bit/storage";
+
+type Direction = "up" | "down" | "left" | "right";
+type DirectionEvent = "press" | "release";
 
 type DrawAllBitsParams = {
   canvas: HTMLCanvasElement;
   vanillaFieldContext: VanillaFieldContext;
+};
+
+const _MOVEMENT_MAP: Record<Direction, { x: number; y: number }> = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 },
+};
+
+const _DIRECTION_BY_KEY: { [key: string]: Direction } = {
+  ArrowUp: "up",
+  ArrowDown: "down",
+  ArrowLeft: "left",
+  ArrowRight: "right",
+  w: "up",
+  s: "down",
+  a: "left",
+  d: "right",
 };
 
 function _drawBit(
@@ -116,49 +144,179 @@ function _calculateBounds(
   };
 }
 
+const _TICK_MS = 200;
+
 export function Field(): JSX.Element | null {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { bit, setBit } = usePlayerBit();
 
-  const handleKeyPress = useCallback(
-    (event: KeyboardEvent) => {
-      if (!bit) return;
+  /**
+   * Keep track of all directions for which keys are being pressed,
+   * in the order in which they were pressed.
+   */
+  const directionEventsActiveRef = useRef<
+    Array<{ direction: Direction; event: DirectionEvent }>
+  >([]);
 
-      const keyMap: { [key: string]: { x: number; y: number } } = {
-        ArrowUp: { x: 0, y: -1 },
-        ArrowDown: { x: 0, y: 1 },
-        ArrowLeft: { x: -1, y: 0 },
-        ArrowRight: { x: 1, y: 0 },
-        w: { x: 0, y: -1 },
-        s: { x: 0, y: 1 },
-        a: { x: -1, y: 0 },
-        d: { x: 1, y: 0 },
-      };
+  const setDirectionEventsActiveRef = useRef(
+    (next: Array<{ direction: Direction; event: DirectionEvent }>) => {
+      directionEventsActiveRef.current = next;
+    }
+  );
 
-      const movement = keyMap[event.key];
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    const direction = _DIRECTION_BY_KEY[event.key];
 
-      if (movement) {
-        setBit((prevBit) => {
-          const nextBit = prevBit
+    if (direction) {
+      const directionEventsActive = directionEventsActiveRef.current;
+
+      const nextDirectionEventsActive = directionEventsActive.some(
+        (de) => de.direction === direction && de.event === "press"
+      )
+        ? directionEventsActive
+        : [
+            { direction: direction, event: "press" as DirectionEvent },
+            ...directionEventsActive,
+          ];
+
+      setDirectionEventsActiveRef.current(nextDirectionEventsActive);
+    }
+  }, []);
+
+  const handleKeyUp = useCallback((event: KeyboardEvent) => {
+    const direction = _DIRECTION_BY_KEY[event.key];
+
+    if (direction) {
+      const directionEventsActive = directionEventsActiveRef.current;
+
+      const nextDirectionEventsActive = directionEventsActive.some(
+        (de) => de.direction === direction && de.event === "release"
+      )
+        ? directionEventsActive
+        : [
+            { direction: direction, event: "release" as DirectionEvent },
+            ...directionEventsActive,
+          ];
+
+      setDirectionEventsActiveRef.current(nextDirectionEventsActive);
+    }
+  }, []);
+
+  // Add movement loop using useEffect
+  // Ok, instead of using setInterval, set the next loop to be at the
+  // top of the next interval of _TICK_MS.
+  // This will allow us to have a more accurate movement loop. In the
+  // per-tick resolution, we'll set the position of the bit/s.
+  // The actual rendering should happen in a requestAnimationFrame.
+  // In the requestAnimationFrame, we'll check if the bit/s have moved,
+  // and if so, we'll rerender them.
+
+  const pendingTickMovementsRef = useRef<Direction[]>([]);
+
+  const renderPendingTicks = useCallback(
+    (_setBit: Dispatch<SetStateAction<Bit | null>>) => {
+      const pendingTickMovements = pendingTickMovementsRef.current;
+
+      for (const moveDirection of pendingTickMovements) {
+        const movement = _MOVEMENT_MAP[moveDirection];
+
+        _setBit((prevBit) =>
+          prevBit
             ? {
                 ...prevBit,
                 x: prevBit.x + movement.x,
                 y: prevBit.y + movement.y,
               }
-            : null;
-
-          return nextBit;
-        });
+            : null
+        );
       }
+
+      pendingTickMovementsRef.current = [];
     },
-    [bit, setBit]
+    []
   );
 
-  // Add keyboard handler
+  // Add to an ordered list of movements that should be processed for each tick.
+  // Ticks are the game clock, but not necessarily the same thing as the animation frame.
+  // We can build up a backlog of tick movements, and they'll need to be applied to the
+  // bits in order whenever we get an animation frame.
+  const resolveTickRef = useRef(() => {
+    const directionEventsActive = directionEventsActiveRef.current;
+
+    const moveDirection = directionEventsActive.find(
+      (de) => de.event === "press"
+    )?.direction;
+
+    if (!moveDirection) return;
+
+    pendingTickMovementsRef.current = [
+      ...pendingTickMovementsRef.current,
+      moveDirection,
+    ];
+
+    const directionsReleasedSet = directionEventsActive.reduce<Set<Direction>>(
+      (acc, directionEvent) =>
+        directionEvent.event === "release"
+          ? new Set([...acc, directionEvent.direction])
+          : acc,
+      new Set<Direction>()
+    );
+
+    const nextDirectionEventsActive = directionEventsActive.filter(
+      (de) => !directionsReleasedSet.has(de.direction)
+    );
+
+    setDirectionEventsActiveRef.current(nextDirectionEventsActive);
+  });
+
+  const tickLoopTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const tickLoopAnimationFrameRef = useRef<number | undefined>(undefined);
+
+  // Just keep asking for the new animation frame at the top of each tick interval.
+  // The only thing this actually _does_ is call resolveTick.
+  const tickLoopRef = useRef(
+    (_setBit: Dispatch<SetStateAction<Bit | null>>) => {
+      const now = Date.now();
+      const topOfNextTick = Math.floor(now / _TICK_MS) * _TICK_MS + _TICK_MS;
+      const timeUntilNextTick = topOfNextTick - now;
+      resolveTickRef.current();
+
+      if (pendingTickMovementsRef.current.length > 0) {
+        tickLoopAnimationFrameRef.current = requestAnimationFrame(() =>
+          renderPendingTicks(_setBit)
+        );
+      }
+
+      tickLoopTimeoutRef.current = setTimeout(() => {
+        tickLoopRef.current(_setBit);
+      }, timeUntilNextTick);
+    }
+  );
+
+  // Initialize the movement loop at the top of the next interval of _TICK_MS.
   useLayoutEffect(() => {
-    window.addEventListener("keydown", handleKeyPress);
-    return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [handleKeyPress]);
+    tickLoopRef.current(setBit);
+
+    return () => {
+      if (tickLoopAnimationFrameRef.current) {
+        cancelAnimationFrame(tickLoopAnimationFrameRef.current);
+      }
+
+      if (tickLoopTimeoutRef.current) {
+        clearTimeout(tickLoopTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Update useLayoutEffect to remove handleKeyPress
+  useLayoutEffect(() => {
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [handleKeyDown, handleKeyUp]);
 
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
