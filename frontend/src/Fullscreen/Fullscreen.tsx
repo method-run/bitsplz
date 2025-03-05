@@ -1,4 +1,4 @@
-import './fullscreen.css';
+import "./fullscreen.css";
 
 /**
  * @param {{
@@ -6,8 +6,7 @@ import './fullscreen.css';
  *   center?: boolean
  * }} props
  */
-export const Fullscreen = (props) => (
-    <div {...props}
-        className={`fullscreen fullscreen--centered`}
-    />
-);
+export const Fullscreen = (props: {
+  children: React.ReactNode;
+  center?: boolean;
+}) => <div {...props} className={`fullscreen fullscreen--centered`} />;

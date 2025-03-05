@@ -1,5 +1,6 @@
 import { WebSocket } from "ws";
-import { pingHandler } from "../ping";
+import { pingHandler } from "./ping";
+import { PingMessage } from "../../../common/dist/PingMessage";
 
 describe("pingHandler", () => {
   it("should send a pong response", () => {

@@ -1,12 +1,6 @@
-import { z } from "zod";
 import { WebSocket } from "ws";
 import { MessageHandler } from "./messageHandler";
-
-export const PingMessage = z.object({
-  type: z.literal("ping"),
-});
-
-export type PingMessage = z.infer<typeof PingMessage>;
+import { PingMessage } from "../../../common/dist/PingMessage";
 
 export const pingHandler: MessageHandler<PingMessage> = {
   schema: PingMessage,

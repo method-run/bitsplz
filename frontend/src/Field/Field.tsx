@@ -3,6 +3,7 @@ import {
   Dispatch,
   SetStateAction,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
 } from "react";
@@ -14,7 +15,8 @@ import {
   bitToCanvasCoordinates,
   GRID_UNIT_PX,
 } from "../bit-renderer/coordinates";
-import { Bit } from "../player-bit/storage";
+import { Bit, getWebSocket } from "../player-bit/storage";
+import { MoveMessage } from "../../common/dist/MoveMessage";
 
 type Direction = "up" | "down" | "left" | "right";
 type DirectionEvent = "press" | "release";
@@ -144,7 +146,7 @@ function _calculateBounds(
   };
 }
 
-const _TICK_MS = 200;
+const _TICK_MS = 300;
 
 export function Field(): JSX.Element | null {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -213,29 +215,6 @@ export function Field(): JSX.Element | null {
 
   const pendingTickMovementsRef = useRef<Direction[]>([]);
 
-  const renderPendingTicks = useCallback(
-    (_setBit: Dispatch<SetStateAction<Bit | null>>) => {
-      const pendingTickMovements = pendingTickMovementsRef.current;
-
-      for (const moveDirection of pendingTickMovements) {
-        const movement = _MOVEMENT_MAP[moveDirection];
-
-        _setBit((prevBit) =>
-          prevBit
-            ? {
-                ...prevBit,
-                x: prevBit.x + movement.x,
-                y: prevBit.y + movement.y,
-              }
-            : null
-        );
-      }
-
-      pendingTickMovementsRef.current = [];
-    },
-    []
-  );
-
   // Add to an ordered list of movements that should be processed for each tick.
   // Ticks are the game clock, but not necessarily the same thing as the animation frame.
   // We can build up a backlog of tick movements, and they'll need to be applied to the
@@ -283,7 +262,10 @@ export function Field(): JSX.Element | null {
 
       if (pendingTickMovementsRef.current.length > 0) {
         tickLoopAnimationFrameRef.current = requestAnimationFrame(() =>
-          renderPendingTicks(_setBit)
+          _renderPendingTicks({
+            _setBit,
+            pendingTickMovements: pendingTickMovementsRef.current,
+          })
         );
       }
 
@@ -355,5 +337,52 @@ export function Field(): JSX.Element | null {
     };
   }, [bit]);
 
+  useEffect(() => {
+    const websocket = getWebSocket();
+
+    if (!bit || !websocket || websocket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const moveMessage: MoveMessage = {
+      type: "move",
+      payload: {
+        bitId: bit.id,
+        x: bit.x,
+        y: bit.y,
+        time: Date.now().valueOf(),
+      },
+    };
+
+    websocket.send(JSON.stringify(moveMessage));
+  }, [bit]);
+
   return bit ? <canvas ref={canvasRef} /> : null;
+}
+
+/** Mutates pendingTickMovements and leaves it empty */
+function _renderPendingTicks({
+  _setBit,
+  pendingTickMovements,
+}: {
+  _setBit: Dispatch<SetStateAction<Bit | null>>;
+  pendingTickMovements: Direction[];
+}) {
+  for (let i = 0; i < pendingTickMovements.length; i++) {
+    const moveDirection = pendingTickMovements.shift();
+    if (!moveDirection) continue;
+    const movement = _MOVEMENT_MAP[moveDirection];
+
+    _setBit((prevBit) => {
+      if (!prevBit) return null;
+
+      const nextBit = {
+        ...prevBit,
+        x: prevBit.x + movement.x,
+        y: prevBit.y + movement.y,
+      };
+
+      return nextBit;
+    });
+  }
 }

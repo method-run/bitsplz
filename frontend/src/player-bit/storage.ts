@@ -1,4 +1,40 @@
 const STORAGE_KEY = "playerBitId";
+const WEBSOCKET_URL = "ws://localhost:3000/ws";
+
+let websocket: WebSocket | null = null;
+
+export const connectWebSocket = (): WebSocket => {
+  if (websocket && websocket.readyState === WebSocket.OPEN) {
+    return websocket;
+  }
+
+  websocket = new WebSocket(WEBSOCKET_URL);
+
+  websocket.onopen = () => {
+    console.log("WebSocket connected");
+  };
+
+  websocket.onclose = () => {
+    console.log("WebSocket disconnected");
+    websocket = null;
+    // Optional: Implement reconnection logic here
+  };
+
+  websocket.onerror = (error) => {
+    console.error("WebSocket error:", error);
+  };
+
+  return websocket;
+};
+
+export const getWebSocket = (): WebSocket | null => websocket;
+
+export const closeWebSocket = (): void => {
+  if (websocket) {
+    websocket.close();
+    websocket = null;
+  }
+};
 
 type StoredBit = {
   /** UUID V4 */

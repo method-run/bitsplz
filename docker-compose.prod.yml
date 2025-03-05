@@ -14,7 +14,8 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
       target: production
     ports:
       - "3000:3000"
@@ -23,13 +24,15 @@ services:
       NODE_ENV: production
     volumes:
       - ./backend:/app
+      - ./common:/app/common
       - /app/node_modules
     depends_on:
       - db
 
   frontend:
     build:
-      context: ./frontend
+      context: .
+      dockerfile: frontend/Dockerfile
       target: builder
     volumes:
       - ./dist:/app/dist    # Maps the dist folder to your local machine

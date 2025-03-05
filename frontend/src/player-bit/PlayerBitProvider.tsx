@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { PlayerBitContext } from "./context";
-import { Bit, createOrLoadPlayerBitAsync } from "./storage";
+import { Bit, connectWebSocket, createOrLoadPlayerBitAsync } from "./storage";
 import { vanillaFieldContext } from "../VanillaFieldContext";
 
 export function PlayerBitProvider(props: React.PropsWithChildren) {
@@ -10,6 +10,7 @@ export function PlayerBitProvider(props: React.PropsWithChildren) {
     const bit = await createOrLoadPlayerBitAsync();
     setBit(bit);
     vanillaFieldContext.updateBit(bit.id, bit);
+    connectWebSocket();
   }, []);
 
   useEffect(() => {
