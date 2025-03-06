@@ -1,6 +1,5 @@
 import { Server } from "http";
 import { WebSocket, WebSocketServer } from "ws";
-import { MessageHandler } from "./messageHandlers/messageHandler";
 import { pingHandler } from "./messageHandlers/ping";
 import { moveHandler } from "./messageHandlers/move";
 
@@ -25,6 +24,8 @@ export function initializeWebSocket(server: Server) {
     ws.on("message", (rawData) => {
       try {
         const data = JSON.parse(rawData.toString());
+
+        console.log(data);
 
         // Try each message handler until one succeeds
         for (const handler of messageHandlers) {
