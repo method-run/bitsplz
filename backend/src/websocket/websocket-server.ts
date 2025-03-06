@@ -25,8 +25,6 @@ export function initializeWebSocket(server: Server) {
       try {
         const data = JSON.parse(rawData.toString());
 
-        console.log(data);
-
         // Try each message handler until one succeeds
         for (const handler of messageHandlers) {
           if (handler.schema.safeParse(data).success) {

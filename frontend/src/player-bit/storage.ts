@@ -1,3 +1,6 @@
+import { BlocksMessage } from "../../common/src/BlocksMessage";
+import { vanillaFieldContext } from "../VanillaFieldContext";
+
 const STORAGE_KEY = "playerBitId";
 const WEBSOCKET_URL = "ws://localhost:3000/ws";
 
@@ -17,12 +20,35 @@ export const connectWebSocket = (): WebSocket => {
   websocket.onclose = () => {
     console.log("WebSocket disconnected");
     websocket = null;
-    // Optional: Implement reconnection logic here
+    // Optional: Implement reconnection logic here, continue trying on an logarithmic scale
+    // until the connection is successful.
+    reconnectWebSocket();
+  };
+
+  websocket.onmessage = (event) => {
+    const message = JSON.parse(event.data);
+
+    if (message.type === "blocks") {
+      const blocks = (message as BlocksMessage).payload;
+      vanillaFieldContext.setLastServerState(blocks);
+    }
   };
 
   websocket.onerror = (error) => {
     console.error("WebSocket error:", error);
   };
+
+  return websocket;
+};
+
+const reconnectWebSocket = (timeoutMs: number = 1000): WebSocket | null => {
+  setTimeout(() => {
+    connectWebSocket();
+
+    if (!websocket) {
+      reconnectWebSocket(timeoutMs * 1.3);
+    }
+  }, timeoutMs);
 
   return websocket;
 };

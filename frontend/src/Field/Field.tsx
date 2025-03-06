@@ -6,6 +6,7 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
+  useState,
 } from "react";
 import {
   VanillaFieldContext,
@@ -22,6 +23,7 @@ type Direction = "up" | "down" | "left" | "right";
 type DirectionEvent = "press" | "release";
 
 type DrawAllBitsParams = {
+  bit: Bit;
   canvas: HTMLCanvasElement;
   vanillaFieldContext: VanillaFieldContext;
 };
@@ -48,7 +50,9 @@ function _drawBit(
   ctx: CanvasRenderingContext2D,
   bit: { x: number; y: number },
   canvas: HTMLCanvasElement,
-  origin: { x: number; y: number }
+  origin: { x: number; y: number },
+  isSessionBit: boolean,
+  isServerInSync: boolean
 ): void {
   const { x: canvasX, y: canvasY } = bitToCanvasCoordinates({
     bitX: bit.x,
@@ -57,11 +61,12 @@ function _drawBit(
     origin,
   });
 
-  ctx.fillStyle = "black";
+  ctx.fillStyle = isSessionBit ? (isServerInSync ? "black" : "red") : "#444";
   ctx.fillRect(canvasX, canvasY, GRID_UNIT_PX, GRID_UNIT_PX);
 }
 
 function _drawAllBits({
+  bit: sessionBit,
   canvas,
   vanillaFieldContext,
 }: DrawAllBitsParams): void {
@@ -85,8 +90,17 @@ function _drawAllBits({
 
   // Draw bits
   bitsInRange.forEach((bit) => {
-    _drawBit(ctx, bit, canvas, bounds.origin);
+    _drawBit(ctx, bit, canvas, bounds.origin, sessionBit.id === bit.id, true);
   });
+
+  _drawBit(
+    ctx,
+    sessionBit,
+    canvas,
+    bounds.origin,
+    true,
+    vanillaFieldContext.getIsServerInSync()
+  );
 
   // Draw debug grid aligned with our coordinate system
   ctx.strokeStyle = "rgba(0,0,0,0.05)";
@@ -146,11 +160,37 @@ function _calculateBounds(
   };
 }
 
+/** Mutates pendingTickMovements and leaves it empty */
+function _renderPendingTicks({
+  _setBit,
+  pendingTickMovements,
+}: {
+  _setBit: Dispatch<SetStateAction<Bit | null>>;
+  pendingTickMovements: Direction[];
+}) {
+  for (let i = 0; i < pendingTickMovements.length; i++) {
+    const moveDirection = pendingTickMovements.shift();
+    if (!moveDirection) continue;
+    const movement = _MOVEMENT_MAP[moveDirection];
+
+    _setBit((prevBit) => {
+      if (!prevBit) return null;
+
+      const nextBit = {
+        ...prevBit,
+        x: prevBit.x + movement.x,
+        y: prevBit.y + movement.y,
+      };
+
+      return nextBit;
+    });
+  }
+}
+
 const _TICK_MS = 300;
 
 export function Field(): JSX.Element | null {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const { bit, setBit } = usePlayerBit();
 
   /**
    * Keep track of all directions for which keys are being pressed,
@@ -165,6 +205,78 @@ export function Field(): JSX.Element | null {
       directionEventsActiveRef.current = next;
     }
   );
+
+  // Add movement loop using useEffect
+  // Ok, instead of using setInterval, set the next loop to be at the
+  // top of the next interval of _TICK_MS.
+  // This will allow us to have a more accurate movement loop. In the
+  // per-tick resolution, we'll set the position of the bit/s.
+  // The actual rendering should happen in a requestAnimationFrame.
+  // In the requestAnimationFrame, we'll check if the bit/s have moved,
+  // and if so, we'll rerender them.
+
+  const pendingTickMovementsRef = useRef<Direction[]>([]);
+  const tickLoopTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const tickLoopAnimationFrameRef = useRef<number | undefined>(undefined);
+
+  // Add to an ordered list of movements that should be processed for each tick.
+  // Ticks are the game clock, but not necessarily the same thing as the animation frame.
+  // We can build up a backlog of tick movements, and they'll need to be applied to the
+  // bits in order whenever we get an animation frame.
+  const resolveTickRef = useRef(() => {
+    const directionEventsActive = directionEventsActiveRef.current;
+
+    const moveDirection = directionEventsActive.find(
+      (de) => de.event === "press"
+    )?.direction;
+
+    if (!moveDirection) return;
+
+    pendingTickMovementsRef.current = [
+      ...pendingTickMovementsRef.current,
+      moveDirection,
+    ];
+
+    const directionsReleasedSet = directionEventsActive.reduce<Set<Direction>>(
+      (acc, directionEvent) =>
+        directionEvent.event === "release"
+          ? new Set([...acc, directionEvent.direction])
+          : acc,
+      new Set<Direction>()
+    );
+
+    const nextDirectionEventsActive = directionEventsActive.filter(
+      (de) => !directionsReleasedSet.has(de.direction)
+    );
+
+    setDirectionEventsActiveRef.current(nextDirectionEventsActive);
+  });
+
+  // Just keep asking for the new animation frame at the top of each tick interval.
+  // The only thing this actually _does_ is call resolveTick.
+  const tickLoopRef = useRef(
+    (_setBit: Dispatch<SetStateAction<Bit | null>>) => {
+      const now = Date.now();
+      const topOfNextTick = Math.floor(now / _TICK_MS) * _TICK_MS + _TICK_MS;
+      const timeUntilNextTick = topOfNextTick - now;
+      resolveTickRef.current();
+
+      if (pendingTickMovementsRef.current.length > 0) {
+        tickLoopAnimationFrameRef.current = requestAnimationFrame(() =>
+          _renderPendingTicks({
+            _setBit,
+            pendingTickMovements: pendingTickMovementsRef.current,
+          })
+        );
+      }
+
+      tickLoopTimeoutRef.current = setTimeout(() => {
+        tickLoopRef.current(_setBit);
+      }, timeUntilNextTick);
+    }
+  );
+
+  const { bit, setBit } = usePlayerBit();
 
   const handleKeyDown = useCallback((event: KeyboardEvent) => {
     const direction = _DIRECTION_BY_KEY[event.key];
@@ -204,76 +316,47 @@ export function Field(): JSX.Element | null {
     }
   }, []);
 
-  // Add movement loop using useEffect
-  // Ok, instead of using setInterval, set the next loop to be at the
-  // top of the next interval of _TICK_MS.
-  // This will allow us to have a more accurate movement loop. In the
-  // per-tick resolution, we'll set the position of the bit/s.
-  // The actual rendering should happen in a requestAnimationFrame.
-  // In the requestAnimationFrame, we'll check if the bit/s have moved,
-  // and if so, we'll rerender them.
+  // Send websocket messages on bit movement
+  useEffect(() => {
+    const websocket = getWebSocket();
 
-  const pendingTickMovementsRef = useRef<Direction[]>([]);
-
-  // Add to an ordered list of movements that should be processed for each tick.
-  // Ticks are the game clock, but not necessarily the same thing as the animation frame.
-  // We can build up a backlog of tick movements, and they'll need to be applied to the
-  // bits in order whenever we get an animation frame.
-  const resolveTickRef = useRef(() => {
-    const directionEventsActive = directionEventsActiveRef.current;
-
-    const moveDirection = directionEventsActive.find(
-      (de) => de.event === "press"
-    )?.direction;
-
-    if (!moveDirection) return;
-
-    pendingTickMovementsRef.current = [
-      ...pendingTickMovementsRef.current,
-      moveDirection,
-    ];
-
-    const directionsReleasedSet = directionEventsActive.reduce<Set<Direction>>(
-      (acc, directionEvent) =>
-        directionEvent.event === "release"
-          ? new Set([...acc, directionEvent.direction])
-          : acc,
-      new Set<Direction>()
-    );
-
-    const nextDirectionEventsActive = directionEventsActive.filter(
-      (de) => !directionsReleasedSet.has(de.direction)
-    );
-
-    setDirectionEventsActiveRef.current(nextDirectionEventsActive);
-  });
-
-  const tickLoopTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
-  const tickLoopAnimationFrameRef = useRef<number | undefined>(undefined);
-
-  // Just keep asking for the new animation frame at the top of each tick interval.
-  // The only thing this actually _does_ is call resolveTick.
-  const tickLoopRef = useRef(
-    (_setBit: Dispatch<SetStateAction<Bit | null>>) => {
-      const now = Date.now();
-      const topOfNextTick = Math.floor(now / _TICK_MS) * _TICK_MS + _TICK_MS;
-      const timeUntilNextTick = topOfNextTick - now;
-      resolveTickRef.current();
-
-      if (pendingTickMovementsRef.current.length > 0) {
-        tickLoopAnimationFrameRef.current = requestAnimationFrame(() =>
-          _renderPendingTicks({
-            _setBit,
-            pendingTickMovements: pendingTickMovementsRef.current,
-          })
-        );
-      }
-
-      tickLoopTimeoutRef.current = setTimeout(() => {
-        tickLoopRef.current(_setBit);
-      }, timeUntilNextTick);
+    if (!bit || !websocket || websocket.readyState !== WebSocket.OPEN) {
+      return;
     }
-  );
+
+    const moveMessage: MoveMessage = {
+      type: "move",
+      payload: {
+        bitId: bit.id,
+        x: bit.x,
+        y: bit.y,
+        time: Date.now().valueOf(),
+      },
+    };
+
+    websocket.send(JSON.stringify(moveMessage));
+  }, [bit]);
+
+  // Send initial websocket message on mount
+  useLayoutEffect(() => {
+    const websocket = getWebSocket();
+
+    if (!bit || !websocket || websocket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const moveMessage: MoveMessage = {
+      type: "move",
+      payload: {
+        bitId: bit.id,
+        x: bit.x,
+        y: bit.y,
+        time: Date.now().valueOf(),
+      },
+    };
+
+    websocket.send(JSON.stringify(moveMessage));
+  }, []);
 
   // Initialize the movement loop at the top of the next interval of _TICK_MS.
   useLayoutEffect(() => {
@@ -300,6 +383,7 @@ export function Field(): JSX.Element | null {
     };
   }, [handleKeyDown, handleKeyUp]);
 
+  // Send websocket messages on bit moves
   useLayoutEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -312,7 +396,10 @@ export function Field(): JSX.Element | null {
       const origin = vanillaFieldContext.getOrigin();
       const nextBounds = _calculateBounds(canvas, origin);
       vanillaFieldContext.setBounds(nextBounds);
-      _drawAllBits({ canvas, vanillaFieldContext });
+
+      if (bit) {
+        _drawAllBits({ bit, canvas, vanillaFieldContext });
+      }
     });
 
     // Initial setup
@@ -321,14 +408,19 @@ export function Field(): JSX.Element | null {
     const origin = vanillaFieldContext.getOrigin();
     const nextBounds = _calculateBounds(canvas, origin);
     vanillaFieldContext.setBounds(nextBounds);
-    _drawAllBits({ canvas, vanillaFieldContext });
+
+    if (bit) {
+      _drawAllBits({ bit, canvas, vanillaFieldContext });
+    }
 
     // Start observing
     resizeObserver.observe(globalThis.document.body);
 
     // Subscribe to changes and redraw
     const unsubscribe = vanillaFieldContext.subscribe(() => {
-      _drawAllBits({ canvas, vanillaFieldContext });
+      if (bit) {
+        _drawAllBits({ bit, canvas, vanillaFieldContext });
+      }
     });
 
     return () => {
@@ -337,52 +429,5 @@ export function Field(): JSX.Element | null {
     };
   }, [bit]);
 
-  useEffect(() => {
-    const websocket = getWebSocket();
-
-    if (!bit || !websocket || websocket.readyState !== WebSocket.OPEN) {
-      return;
-    }
-
-    const moveMessage: MoveMessage = {
-      type: "move",
-      payload: {
-        bitId: bit.id,
-        x: bit.x,
-        y: bit.y,
-        time: Date.now().valueOf(),
-      },
-    };
-
-    websocket.send(JSON.stringify(moveMessage));
-  }, [bit]);
-
   return bit ? <canvas ref={canvasRef} /> : null;
-}
-
-/** Mutates pendingTickMovements and leaves it empty */
-function _renderPendingTicks({
-  _setBit,
-  pendingTickMovements,
-}: {
-  _setBit: Dispatch<SetStateAction<Bit | null>>;
-  pendingTickMovements: Direction[];
-}) {
-  for (let i = 0; i < pendingTickMovements.length; i++) {
-    const moveDirection = pendingTickMovements.shift();
-    if (!moveDirection) continue;
-    const movement = _MOVEMENT_MAP[moveDirection];
-
-    _setBit((prevBit) => {
-      if (!prevBit) return null;
-
-      const nextBit = {
-        ...prevBit,
-        x: prevBit.x + movement.x,
-        y: prevBit.y + movement.y,
-      };
-
-      return nextBit;
-    });
-  }
 }
