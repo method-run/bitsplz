@@ -4,9 +4,9 @@
 
 ### In progress
 
-- [ ] Add proper environment variable configuration #priority-0
-- [ ] Add setup instructions in README #priority-0
-- [ ] Milestone 0: Add to a public github repo #priority-0
+- [x] Add proper environment variable configuration #priority-0
+- [x] Add setup instructions in README #priority-0
+- [x] Milestone 0: Add to a public github repo #priority-0
 
 ### Prioritized
 
