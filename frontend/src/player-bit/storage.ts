@@ -2,7 +2,8 @@ import { BlocksMessage } from "../../common/src/BlocksMessage";
 import { vanillaFieldContext } from "../VanillaFieldContext";
 
 const STORAGE_KEY = "playerBitId";
-const WEBSOCKET_URL = "ws://localhost:3000/ws";
+const WEBSOCKET_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3000/ws";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 let websocket: WebSocket | null = null;
 
@@ -100,7 +101,7 @@ export const loadPlayerBitAsync = async (bitId: string): Promise<Bit> => {
     throw new Error("Bit ID is required");
   }
 
-  const response = await fetch(`http://localhost:3000/api/bit/${bitId}`);
+  const response = await fetch(`${API_URL}/api/bit/${bitId}`);
 
   if (!response.ok) {
     throw new Error("Failed to load bit");
@@ -120,7 +121,7 @@ export const loadPlayerBitAsync = async (bitId: string): Promise<Bit> => {
  * Creates a new bit and saves the bit ID to localStorage
  */
 export const createPlayerBitAsync = async (): Promise<Bit> => {
-  const response = await fetch("http://localhost:3000/api/bit", {
+  const response = await fetch(`${API_URL}/api/bit`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -140,4 +141,35 @@ export const createPlayerBitAsync = async (): Promise<Bit> => {
   };
 
   return createdBit;
+};
+
+export const getBitAsync = async (bitId: string): Promise<Bit | null> => {
+  try {
+    const response = await fetch(`${API_URL}/api/bit/${bitId}`);
+    if (!response.ok) {
+      throw new Error(response.statusText);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to get bit:", error);
+    return null;
+  }
+};
+
+export const createBitAsync = async (): Promise<Bit | null> => {
+  try {
+    const response = await fetch(`${API_URL}/api/bit`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (!response.ok) {
+      throw new Error(response.statusText);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error("Failed to create bit:", error);
+    return null;
+  }
 };

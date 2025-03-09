@@ -1,0 +1,11 @@
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# But allow example files
+!.env.example
+!frontend/.env.example
+!backend/.env.example
+
+# ... rest of your existing .gitignore content ...

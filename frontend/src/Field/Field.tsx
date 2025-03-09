@@ -6,7 +6,6 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
-  useState,
 } from "react";
 import {
   VanillaFieldContext,

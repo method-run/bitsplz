@@ -10,12 +10,15 @@ const messageHandlers = [pingHandler, moveHandler];
 const clients = new Set<WebSocket>();
 
 export function initializeWebSocket(server: Server) {
+  const wsPath = process.env.WS_PATH || "/ws";
   const wss = new WebSocketServer({
     server,
-    path: "/ws",
+    path: wsPath,
   });
 
-  console.log(`WebSocket server listening on ws://localhost:3000/ws`);
+  const host = process.env.HOST || "0.0.0.0";
+  const port = parseInt(process.env.PORT || "3000", 10);
+  console.log(`WebSocket server listening on ws://${host}:${port}${wsPath}`);
 
   wss.on("connection", (ws) => {
     clients.add(ws);
