@@ -1,6 +1,22 @@
 version: '3.8'
 
 services:
+  # Name of the service within docker compose
+  # This service contains a dist of common TS types and Zod schemas, for sharing
+  # between backend and frontend
+  common:
+    # Build context
+    build:
+      # Location from which the Dockerfile is executed
+      context: ./common
+      # Location of the Dockerfile
+      dockerfile: Dockerfile
+      # Stage in the dockerfile to build
+      target: builder
+    volumes:
+      # Volume to store the built files for sharing with other services
+      - common_dist:/app/dist
+
   db:
     image: postgres:14
     environment:
@@ -22,7 +38,10 @@ services:
     environment:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       NODE_ENV: production
+    volumes:
+      - common_dist:/app/common/dist
     depends_on:
+      - common
       - db
 
   frontend:
@@ -32,6 +51,10 @@ services:
       target: builder
     volumes:
       - ./dist:/app/dist    # Maps the dist folder to your local machine
+      - common_dist:/app/common/dist
+    depends_on:
+      - common
 
 volumes:
+  common_dist:
   postgres_data:
