@@ -9,3 +9,5 @@
 !backend/.env.example
 
 # ... rest of your existing .gitignore content ...
+node_modules
+dist

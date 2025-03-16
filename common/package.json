@@ -14,10 +14,10 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@types/node": "^20.11.19",
-    "typescript": "^5.3.3"
+    "@types/node": "^20.11.19"
   },
   "dependencies": {
+    "typescript": "^5.3.3",
     "zod": "^3.24.2"
   }
 }

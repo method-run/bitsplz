@@ -3,3 +3,6 @@ node_modules
 backend/common
 frontend/common
 npm-debug.log
+dist
+**/dist
+Dockerfile
