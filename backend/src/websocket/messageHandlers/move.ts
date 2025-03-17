@@ -1,9 +1,9 @@
 import { WebSocket } from "ws";
 import { MessageHandler } from "./messageHandler";
-import { MoveMessage } from "../../../common/dist/MoveMessage";
+import { MoveMessage } from "common/MoveMessage";
 import { getEmptyBlock } from "../../blocks/get-empty-block";
 import { getSurroundingBlocksByIdAsync } from "../../blocks/get-surrounding-blocks";
-import { BlocksMessage } from "../../../common/src/BlocksMessage";
+import { BlocksMessage } from "common/BlocksMessage";
 import { updateBitAsync } from "../../bits/update-bit-async";
 
 export const moveHandler: MessageHandler<MoveMessage> = {

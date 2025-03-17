@@ -1,6 +1,6 @@
 import { WebSocket } from "ws";
 import { MessageHandler } from "./messageHandler";
-import { PingMessage } from "../../../common/dist/PingMessage";
+import { PingMessage } from "common/PingMessage";
 
 export const pingHandler: MessageHandler<PingMessage> = {
   schema: PingMessage,

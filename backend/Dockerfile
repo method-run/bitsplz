@@ -1,76 +1,46 @@
-# Base stage for shared steps
-FROM node:18 as base
+FROM node:18 as build-dependencies
 
 WORKDIR /app
 
-# Copy package files for both backend and common
-COPY backend/package*.json ./
-COPY common/package*.json ./common/
+# Copy src and common dependencies dist
+COPY backend/. ./
+COPY common/dist ./common/dist
 
-# Install dependencies for both
 RUN npm install
-RUN cd common && npm install
 
-# Copy source files
-COPY backend/ .
-COPY common/ ./common/
+FROM node:18 as development
 
-# Development stage
-FROM base as development
+WORKDIR /app
 
-# Build common files
-RUN cd common && npm run build
+COPY --from=build-dependencies /app/. .
 
 EXPOSE 8080
 
 CMD ["npm", "run", "dev", "--", "--host"]
 
-# Build stage (only needed for producing the static files)
-FROM base as builder
-
-# Build common files
-RUN cd common && npm run build
-
-# Add debugging BEFORE build
-RUN echo "=== BEFORE BUILD ===" && \
-    echo "Contents of /app/src:" && \
-    ls -la /app/src
-
-RUN npm run build
-
-# Add debugging AFTER build
-RUN echo "=== AFTER BUILD ===" && \
-    echo "Contents of /app/dist:" && \
-    ls -la /app/dist && \
-    echo "\nContents of /app/dist/src:" && \
-    ls -la /app/dist/src
-
-# Production stage
-FROM node:18-slim as production
+FROM node:18 as production-build
 
 WORKDIR /app
 
-COPY backend/package*.json ./
-COPY common/package*.json ./common/
-
-# Install dependencies
-RUN npm install --production && \
-    cd common && npm install --production
-
-# Copy both backend and common dist files
-COPY --from=builder /app/dist/ ./dist/
-COPY --from=builder /app/common/dist/ ./common/dist/
+COPY --from=build-dependencies /app/. .
 
 ENV NODE_ENV production
-EXPOSE 3000
 
-# Add debugging
-RUN echo "=== PRODUCTION STAGE FILES ===" && \
-    echo "Contents of /app/dist/src:" && \
-    ls -la /app/dist/src && \
-    echo "\nContents of /app/common/dist:" && \
-    ls -la /app/common/dist && \
-    echo "\nNode module resolution paths:" && \
-    node -e "console.log(module.paths)"
+RUN npm run build
 
-CMD ["node", "dist/src/index.js"]
+FROM node:18 as production
+
+WORKDIR /app
+
+COPY --from=production-build /app/common ./common
+COPY --from=production-build /app/package*.json .
+COPY --from=production-build /app/dist ./dist
+
+ENV NODE_ENV production
+
+RUN npm install --omit=dev
+
+EXPOSE 8080
+
+CMD ["node", "dist/index.js"]
+

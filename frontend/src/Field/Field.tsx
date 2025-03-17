@@ -16,7 +16,7 @@ import {
   GRID_UNIT_PX,
 } from "../bit-renderer/coordinates";
 import { Bit, getWebSocket } from "../player-bit/storage";
-import { MoveMessage } from "../../common/dist/MoveMessage";
+import { MoveMessage } from "common/MoveMessage";
 
 type Direction = "up" | "down" | "left" | "right";
 type DirectionEvent = "press" | "release";

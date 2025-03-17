@@ -1,6 +1,6 @@
 import { WebSocket } from "ws";
 import { moveHandler } from "./move";
-import { MoveMessage } from "../../../common/dist/MoveMessage";
+import { MoveMessage } from "common/MoveMessage";
 
 describe("moveHandler", () => {
   const validMessage: MoveMessage = {

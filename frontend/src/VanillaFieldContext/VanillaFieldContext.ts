@@ -1,4 +1,4 @@
-import { Block } from "../../common/src/Block";
+import { Block } from "common/Block";
 import { Bit } from "../player-bit/storage";
 
 type FieldState = {

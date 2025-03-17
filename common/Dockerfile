@@ -3,14 +3,14 @@ FROM node:18 as prod-deps
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY common/package*.json ./
 
 # Install dependencies
-CMD ["npm", "install", "--omit=dev"]
+RUN npm install --omit=dev
 
 FROM prod-deps as builder
 
-COPY . ./
+COPY common/. ./
 
 # Build common files
 CMD ["npm", "run", "build"]

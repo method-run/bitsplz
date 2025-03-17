@@ -1,34 +1,43 @@
 # Base stage for shared steps
-FROM node:18 as base
+FROM node:18 as build-dependencies
 
 WORKDIR /app
 
-# Copy package files for both frontend and common
-COPY frontend/package*.json ./
-COPY common/package*.json ./common/
+# Copy src and common dependencies dist
+COPY frontend/. ./
+COPY common/dist ./common/dist
 
-# Install dependencies for both
 RUN npm install
-RUN cd common && npm install
 
-# Copy source files
-COPY frontend/ .
-COPY common/ ./common/
+FROM node:18 as development
 
-# Development stage
-FROM base as development
+WORKDIR /app
 
-# Build common files
-RUN cd common && npm run build
+COPY --from=build-dependencies /app/. .
 
 EXPOSE 8080
 
 CMD ["npm", "run", "dev", "--", "--host"]
 
 # Build stage
-FROM base as builder
+FROM node:18 as production-build
 
-# Build common files
-RUN cd common && npm run build
+WORKDIR /app
+
+COPY --from=build-dependencies /app/. .
+
+ENV NODE_ENV production
 
 RUN npm run build
+
+FROM node:18 as production
+
+WORKDIR /app
+
+COPY --from=production-build /app/common ./common
+COPY --from=production-build /app/package*.json .
+COPY --from=production-build /app/dist ./dist
+
+ENV NODE_ENV production
+
+RUN npm install --omit=dev

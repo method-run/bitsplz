@@ -1,4 +1,4 @@
-import { BlocksMessage } from "../../common/src/BlocksMessage";
+import { BlocksMessage } from "common/BlocksMessage";
 import { vanillaFieldContext } from "../VanillaFieldContext";
 
 const STORAGE_KEY = "playerBitId";
