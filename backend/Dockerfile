@@ -5,8 +5,11 @@ WORKDIR /app
 # Copy src and common dependencies dist
 COPY backend/. ./
 COPY common/dist ./common/dist
+COPY common/node_modules ./common/node_modules
 
 RUN npm install
+
+CMD ["curl", "http://localhost:8080/api/migration"]
 
 FROM node:18 as development
 

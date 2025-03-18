@@ -6,6 +6,7 @@ WORKDIR /app
 # Copy src and common dependencies dist
 COPY frontend/. ./
 COPY common/dist ./common/dist
+COPY common/node_modules ./common/node_modules
 
 RUN npm install
 
