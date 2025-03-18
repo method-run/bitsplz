@@ -2,8 +2,8 @@ import { BlocksMessage } from "common/BlocksMessage";
 import { vanillaFieldContext } from "../VanillaFieldContext";
 
 const STORAGE_KEY = "playerBitId";
-const WEBSOCKET_URL = import.meta.env.VITE_WS_URL || "ws://localhost:3000/ws";
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const WEBSOCKET_URL = import.meta.env.VITE_WS_URL || "ws://localhost:8080/ws";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080";
 
 let websocket: WebSocket | null = null;
 

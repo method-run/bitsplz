@@ -15,9 +15,9 @@ WORKDIR /app
 
 COPY --from=build-dependencies /app/. .
 
-EXPOSE 8080
+EXPOSE 4173
 
-CMD ["npm", "run", "dev", "--", "--host"]
+CMD ["npm", "run", "dev", "--", "--port", "4173", "--host"]
 
 # Build stage
 FROM node:18 as production-build

@@ -17,7 +17,7 @@ export function initializeWebSocket(server: Server) {
   });
 
   const host = process.env.HOST || "0.0.0.0";
-  const port = parseInt(process.env.PORT || "3000", 10);
+  const port = parseInt(process.env.PORT || "8080", 10);
   console.log(`WebSocket server listening on ws://${host}:${port}${wsPath}`);
 
   wss.on("connection", (ws) => {
