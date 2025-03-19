@@ -7,6 +7,7 @@ import { createBitAsync } from "./bits/create-bit-async";
 import { deleteBitAsync } from "./bits/delete-bit-async";
 import { getBitAsync } from "./bits/get-bit-async";
 import dotenv from "dotenv";
+import path from "path";
 
 // Load environment variables
 dotenv.config();
@@ -17,6 +18,28 @@ const host = process.env.HOST || "0.0.0.0";
 
 app.use(cors());
 app.use(express.json());
+
+// Serve static files from frontend/dist in production
+if (process.env.NODE_ENV === "production") {
+  const frontendDistPath = path.join(__dirname, "..", "frontend", "dist");
+
+  // Serve static files with correct MIME types
+  app.use(
+    express.static(frontendDistPath, {
+      // Set proper cache headers
+      maxAge: "1d",
+    })
+  );
+
+  // Handle client-side routing by serving index.html for all non-API/non-static routes
+  app.get("*", (req, res, next) => {
+    if (req.path.startsWith("/api/") || req.path.startsWith("/ws")) {
+      next();
+    } else {
+      res.sendFile(path.join(frontendDistPath, "index.html"));
+    }
+  });
+}
 
 // Health check endpoint
 app.get("/api/health", async (req, res) => {

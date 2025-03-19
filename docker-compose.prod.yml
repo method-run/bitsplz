@@ -1,3 +1,6 @@
+# To run the production build:
+# docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build
+
 version: '3.8'
 
 services:
@@ -8,14 +11,15 @@ services:
     # Build context
     build:
       # Location from which the Dockerfile is executed
-      context: ./common
+      context: .
       # Location of the Dockerfile
-      dockerfile: Dockerfile
+      dockerfile: common/Dockerfile
       # Stage in the dockerfile to build
       target: builder
     volumes:
-      # Volume to store the built files for sharing with other services
+      # Make common_dist available to other services
       - common_dist:/app/dist
+      - common_node_modules:/app/node_modules
 
   db:
     image: postgres:14
@@ -34,27 +38,37 @@ services:
       dockerfile: backend/Dockerfile
       target: production
     ports:
-      - "3000:3000"
+      - "8080:8080"
     environment:
       DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}
       NODE_ENV: production
     volumes:
       - common_dist:/app/common/dist
+      - frontend_dist:/app/frontend/dist
+      - /app/common/node_modules
+      - /app/node_modules
     depends_on:
       - common
       - db
+      - frontend
 
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-      target: builder
+      target: production
+    ports:
+      - "4173:4173"
     volumes:
-      - ./dist:/app/dist    # Maps the dist folder to your local machine
+      - /app/common/node_modules
+      - /app/node_modules
       - common_dist:/app/common/dist
+      - frontend_dist:/app/dist
     depends_on:
       - common
 
 volumes:
   common_dist:
+  common_node_modules:
+  frontend_dist:
   postgres_data:

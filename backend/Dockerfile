@@ -38,6 +38,8 @@ WORKDIR /app
 COPY --from=production-build /app/common ./common
 COPY --from=production-build /app/package*.json .
 COPY --from=production-build /app/dist ./dist
+COPY --from=production-build /app/src/migrations ./dist/migrations
+COPY frontend/dist ./frontend/dist
 
 ENV NODE_ENV production
 
